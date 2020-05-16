@@ -2,13 +2,16 @@ import re
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
 
-path = "C:/Users/79234/Desktop/py/"
+# 1.危险辨识表(最好为英文路径)
+wxPath = "C:/Users/79234/Desktop/py/1/demo.xlsx"
+# 2.风险管控表(最好为英文路径)
+fxPath = "C:/Users/79234/Desktop/py/2/demo.xlsx"
+# 3.最终生成的文件目录(最好为英文路径)
+finalPath = "C:/Users/79234/Desktop/py/final.xlsx"
 
 # 获取文件
-# 1.危险辨识表(最好改为英文)
-wb = load_workbook(path+'1/demo.xlsx')
-# 2.风险管控表(最好改为英文)
-wb2 = load_workbook(path+'2/demo.xlsx')
+wb = load_workbook(wxPath)
+wb2 = load_workbook(fxPath)
 
 # 选择第一张表
 worksheet = wb[wb.sheetnames[0]]
@@ -59,10 +62,25 @@ unMerged(worksheet2)
 worksheet.delete_rows(1, 4)
 worksheet2.delete_rows(1, 4)
 
-# 创建一个工作薄对象,也就是创建一个excel文档
+# 责任单位换行符换为、
+k = column_index_from_string("K")
+ws2MaxRow = worksheet2.max_row
+
+
+def removeEnter(val):  # 去除换行函数 只对排查单位..使用
+    return re.sub("\n", "、", val)
+
+
+for i in range(1, ws2MaxRow+1):
+    if worksheet2.cell(row=i, column=k).value != None:
+        worksheet2.cell(row=i, column=k, value=removeEnter(
+            worksheet2.cell(row=i, column=k).value))
+
+###############################################################################
+# 创建一个工作薄对象=创建一个excel文档
 final = Workbook()
 
-# 指定当前显示（活动）的sheet对象
+# 指定当前显示（活动）的sheet对象(最终生成的表)
 ws = final.active
 # 给新表赋值
 max_row = worksheet.max_row
@@ -74,6 +92,7 @@ max_row = worksheet.max_row
 
 def setData(m, n, row, key):  # m为复制后的行数,n为所复制内容的行数,row为措施内容列数,key为措施名称
     # 赋值主要内容
+    # 下方代码: ws的A列为worksheet的B列...
     ws.cell(row=m, column=column_index_from_string('A'), value=worksheet.cell(
         row=n, column=column_index_from_string('B')).value)
     ws.cell(row=m, column=column_index_from_string('C'), value=worksheet.cell(
@@ -92,19 +111,19 @@ def setData(m, n, row, key):  # m为复制后的行数,n为所复制内容的行
         row=n, column=column_index_from_string('I')).value)
     ws.cell(row=m, column=column_index_from_string('J'), value=worksheet.cell(
         row=n, column=column_index_from_string('J')).value)
-    ws.cell(row=m, column=column_index_from_string('K'), value=worksheet.cell(
-        row=n, column=column_index_from_string('K')).value)
+    ws.cell(row=m, column=k, value=worksheet.cell(
+        row=n, column=k).value)
     ws.cell(row=m, column=column_index_from_string('L'), value=key)
     ws.cell(row=m, column=column_index_from_string('M'), value=worksheet.cell(
         row=n, column=column_index_from_string(row)).value)
     ws.cell(row=m, column=column_index_from_string('Q'), value='否')
     # 赋值责任单位
     ws.cell(row=m, column=column_index_from_string('N'), value=worksheet2.cell(
-        row=n, column=column_index_from_string('K')).value)
+        row=n, column=k).value)
     ws.cell(row=m, column=column_index_from_string('O'), value=worksheet2.cell(
-        row=n, column=column_index_from_string('K')).value)
+        row=n, column=k).value)
     ws.cell(row=m, column=column_index_from_string('P'), value=worksheet2.cell(
-        row=n, column=column_index_from_string('K')).value)
+        row=n, column=k).value)
 
 
 # 根据setData复制代码 设置不同的管控措施
@@ -113,7 +132,7 @@ for m in range(1, max_row+1):
     setData(m+max_row, m, 'R', '培训教育措施')
     setData(m+max_row+max_row, m, 'S', '个体防护措施')
     setData(m+max_row+max_row+max_row, m, 'T', '应急处置措施')
-    setData(m+max_row+max_row+max_row, m, 'P', '工程控制措施')
+    setData(m+max_row+max_row+max_row+max_row, m, 'P', '工程控制措施')
 
 wb.close()
 wb2.close()
@@ -125,11 +144,12 @@ cols = column_index_from_string('M')
 
 
 def appenRow(n, m):  # 向后追加行
+    # n为当前所需复制行 dataArr为数组
     # 获取最大列数并存储当前行内值
     maxCol = ws.max_column
     arr = []
     for c in range(1, maxCol+1):
-        arr.append(ws.cell(row=1, column=c).value)
+        arr.append(ws.cell(row=n, column=c).value)
 
         # 根据数据的条数 向后追加行
     for index, item in enumerate(m):
@@ -139,6 +159,7 @@ def appenRow(n, m):  # 向后追加行
             arr[12] = item
             ws.append(arr)
 
+
 # ^1、| \n\d{1,2}、
 # 改为倒叙，删除行不会对索引产生影响
 for n in range(max, 0, -1):
@@ -146,10 +167,11 @@ for n in range(max, 0, -1):
     if re.match("^1、|[2-9]{1,2}、", ws.cell(row=n, column=cols).value):
         # 换行符替换为空
         str1 = re.sub("\n", "", ws.cell(row=n, column=cols).value)
-        # 将所有 1、/2、...换为@
+        # 将数据根据拆分为数组
         str2 = re.split("^1、|[2-9]{1,2}、", str1)
+        # 排除空的项
         dataArr = [i for i in str2 if i != '']
-        # # 将数据根据@拆分为数组
+        # n为当前行 dataArr为数组
         appenRow(n, dataArr)
         # # 将第一条数据赋值
         ws.cell(row=n, column=cols, value=dataArr[0])
@@ -157,4 +179,4 @@ for n in range(max, 0, -1):
     if ws.cell(row=n, column=cols).value == "" or ws.cell(row=n, column=cols).value == "/":
         ws.delete_rows(n, 1)
 
-final.save(path+'final.xlsx')
+final.save(finalPath)
